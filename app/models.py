@@ -4,6 +4,7 @@ import json
 from datetime import datetime
 
 from flask_login import UserMixin
+from sqlalchemy.orm import deferred
 
 from app import db
 
@@ -206,6 +207,10 @@ class EvaluacionMMSE(db.Model):
     observaciones = db.Column(db.Text)
     imagen_archivo = db.Column(db.String(200))      # nombre interno en instance/evaluaciones
     imagen_nombre = db.Column(db.String(200))       # nombre original del archivo subido
+    # Contenido del archivo guardado en la base: en Render el disco se borra en cada reinicio.
+    # deferred: solo se lee cuando se pide la imagen, no al listar evaluaciones.
+    imagen_datos = deferred(db.Column(db.LargeBinary))
+    imagen_tipo = db.Column(db.String(60))          # tipo MIME (image/jpeg, application/pdf, ...)
     registrado_por_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"), nullable=True)
     fecha_registro = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     fecha_actualizacion = db.Column(db.DateTime)

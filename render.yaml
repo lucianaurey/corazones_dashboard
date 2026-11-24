@@ -1,0 +1,31 @@
+# Blueprint de Render: crea el dashboard y su base de datos Postgres.
+# En Render: New > Blueprint > elegir este repositorio.
+services:
+  - type: web
+    name: corazones-dashboard
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt && python entrenar_modelo.py
+    startCommand: gunicorn run:app --workers 1 --threads 4 --timeout 120
+    healthCheckPath: /login
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false            # Render la pide al crear el Blueprint
+      - key: ADMIN_FULL_NAME
+        value: Administrador Corazones de Alegría
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: corazones-db
+          property: connectionString
+
+databases:
+  - name: corazones-db
+    plan: free
+    databaseName: corazones
+    user: corazones

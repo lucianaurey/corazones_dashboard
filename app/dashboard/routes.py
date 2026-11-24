@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import mimetypes
 import uuid
+from io import BytesIO
 from datetime import datetime
 from pathlib import Path
 
@@ -164,6 +166,7 @@ def _carpeta_evaluaciones() -> Path:
 
 def _borrar_imagen(ev: EvaluacionMMSE) -> None:
     if ev.imagen_archivo:
+        # Registros antiguos guardaban la imagen en disco
         ruta = _carpeta_evaluaciones() / ev.imagen_archivo
         try:
             ruta.unlink(missing_ok=True)
@@ -171,15 +174,18 @@ def _borrar_imagen(ev: EvaluacionMMSE) -> None:
             current_app.logger.warning("No se pudo eliminar %s", ruta)
     ev.imagen_archivo = None
     ev.imagen_nombre = None
+    ev.imagen_datos = None
+    ev.imagen_tipo = None
 
 
 def _guardar_imagen(ev: EvaluacionMMSE, archivo) -> None:
+    """Guarda la imagen (o PDF) del resultado MMSE en la base de datos."""
     nombre = secure_filename(archivo.filename or "resultado")
     extension = nombre.rsplit(".", 1)[-1].lower() if "." in nombre else "jpg"
     _borrar_imagen(ev)
-    interno = f"{ev.codigo}_{uuid.uuid4().hex[:12]}.{extension}"
-    archivo.save(_carpeta_evaluaciones() / interno)
-    ev.imagen_archivo = interno
+    ev.imagen_datos = archivo.read()
+    ev.imagen_tipo = (archivo.mimetype or mimetypes.guess_type(nombre)[0] or "application/octet-stream")[:60]
+    ev.imagen_archivo = f"{ev.codigo}_{uuid.uuid4().hex[:12]}.{extension}"
     ev.imagen_nombre = (archivo.filename or nombre)[:200]
 
 
@@ -321,11 +327,15 @@ def imagen_evaluacion(evaluacion_id: int):
     ev = db.session.get(EvaluacionMMSE, evaluacion_id) or abort(404)
     if not ev.imagen_archivo:
         abort(404)
-    ruta = _carpeta_evaluaciones() / ev.imagen_archivo
+    descargar = request.args.get("descargar") == "1"
+    nombre = ev.imagen_nombre or ev.imagen_archivo
+    if ev.imagen_datos:
+        tipo = ev.imagen_tipo or mimetypes.guess_type(ev.imagen_archivo)[0] or "application/octet-stream"
+        return send_file(BytesIO(ev.imagen_datos), mimetype=tipo, download_name=nombre, as_attachment=descargar)
+    ruta = _carpeta_evaluaciones() / ev.imagen_archivo  # registros antiguos guardados en disco
     if not ruta.exists():
         abort(404)
-    return send_file(ruta, download_name=ev.imagen_nombre or ev.imagen_archivo,
-                     as_attachment=request.args.get("descargar") == "1")
+    return send_file(ruta, download_name=nombre, as_attachment=descargar)
 
 
 @dashboard_bp.route("/alertas/<int:alerta_id>/atender", methods=["POST"])

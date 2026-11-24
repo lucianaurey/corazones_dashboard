@@ -8,6 +8,7 @@ from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import CSRFProtect
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash
 
 from app.config import Config
@@ -23,6 +24,8 @@ NIVELES = {0: "Bajo", 1: "Medio", 2: "Alto"}
 def create_app(config_class: type[Config] = Config) -> Flask:
     app = Flask(__name__)
     app.config.from_object(config_class)
+    # Detrás del proxy de Render: respeta https y la IP real del cliente
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
     if app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite:///"):
         Path(app.config["SQLALCHEMY_DATABASE_URI"].replace("sqlite:///", "")).parent.mkdir(parents=True, exist_ok=True)
 
@@ -91,6 +94,7 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     with app.app_context():
         db.create_all()
         _agregar_columnas_nuevas()
+        _preparar_datos_iniciales(app)
     return app
 
 
@@ -98,10 +102,35 @@ def _agregar_columnas_nuevas() -> None:
     """Agrega a una base ya creada las columnas incorporadas después (por ejemplo, el nombre del residente)."""
     from sqlalchemy import inspect, text
 
-    columnas = {c["name"] for c in inspect(db.engine).get_columns("resultados_prediccion")}
-    if "nombre" not in columnas:
-        with db.engine.begin() as conexion:
-            conexion.execute(text("ALTER TABLE resultados_prediccion ADD COLUMN nombre VARCHAR(120)"))
+    binario = "BYTEA" if db.engine.dialect.name == "postgresql" else "BLOB"
+    nuevas = {
+        "resultados_prediccion": {"nombre": "VARCHAR(120)"},
+        "evaluaciones_mmse": {"imagen_datos": binario, "imagen_tipo": "VARCHAR(60)"},
+    }
+    inspector = inspect(db.engine)
+    for tabla, columnas in nuevas.items():
+        existentes = {c["name"] for c in inspector.get_columns(tabla)}
+        for columna, tipo in columnas.items():
+            if columna not in existentes:
+                with db.engine.begin() as conexion:
+                    conexion.execute(text(f"ALTER TABLE {tabla} ADD COLUMN {columna} {tipo}"))
+
+
+def _preparar_datos_iniciales(app: Flask) -> None:
+    """En una base vacía (por ejemplo, la primera vez en Render) crea el administrador con las
+    variables de entorno e importa los 5.000 registros de referencia. No toca datos existentes."""
+    from app.data.services import importar_referencia
+    from app.models import RegistroReferencia, Usuario
+
+    try:
+        if app.config["ADMIN_PASSWORD"] and not Usuario.query.filter_by(username=app.config["ADMIN_USERNAME"]).first():
+            _crear_admin(app)
+        if db.session.query(RegistroReferencia.id).first() is None and Path(app.config["DATASET_REFERENCIA"]).exists():
+            n = importar_referencia(app.config["DATASET_REFERENCIA"])
+            app.logger.info("Registros de referencia importados: %s", n)
+    except Exception:  # noqa: BLE001
+        db.session.rollback()
+        app.logger.exception("No se pudieron preparar los datos iniciales.")
 
 
 def obtener_modelo():
