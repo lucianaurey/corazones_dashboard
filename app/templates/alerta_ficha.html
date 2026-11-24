@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% from "_macros.html" import nivel_badge, barra_puntaje %}
+
+{% macro campo(f, extra_class="") %}
+<label class="campo {{ extra_class }}">{{ f.label.text }}
+    {% if f.type == 'SelectField' %}{{ f(class="form-select" + (" is-invalid" if f.errors else "")) }}
+    {% elif f.type == 'TextAreaField' %}{{ f(class="form-control" + (" is-invalid" if f.errors else ""), rows=3) }}
+    {% elif f.type == 'DateField' %}{{ f(class="form-control" + (" is-invalid" if f.errors else ""), type="date") }}
+    {% elif f.name == 'hora' %}{{ f(class="form-control" + (" is-invalid" if f.errors else ""), type="time") }}
+    {% elif f.type == 'IntegerField' %}{{ f(class="form-control" + (" is-invalid" if f.errors else ""), type="number", min=0, max=30) }}
+    {% else %}{{ f(class="form-control" + (" is-invalid" if f.errors else "")) }}{% endif %}
+    {% for e in f.errors %}<span class="invalid-feedback d-block">{{ e }}</span>{% endfor %}
+</label>
+{% endmacro %}
+
+{% macro tarjeta_evaluacion(ev, editable=true) %}
+<article class="eval-card estado-{{ ev.estado }}">
+    <div class="eval-card-head">
+        <span class="seg seg-{{ ev.estado }}">{{ {'programada': 'Programada', 'realizada': 'Realizada', 'cancelada': 'Cancelada'}[ev.estado] }}</span>
+        <small class="text-muted">Registrada {{ ev.fecha_registro | fecha }}{% if ev.registrado_por %} · {{ ev.registrado_por.nombre_completo }}{% endif %}{% if ev.fecha_actualizacion %} · editada {{ ev.fecha_actualizacion | fecha }}{% endif %}</small>
+    </div>
+    <div class="eval-card-body">
+        <dl class="eval-datos">
+            {% if ev.fecha_programada %}<div><dt>Programada</dt><dd>{{ ev.fecha_programada | fecha }}{% if ev.hora %} · {{ ev.hora }}{% endif %}</dd></div>{% endif %}
+            {% if ev.lugar %}<div><dt>Lugar</dt><dd>{{ ev.lugar }}</dd></div>{% endif %}
+            {% if ev.responsable %}<div><dt>Responsable</dt><dd>{{ ev.responsable }}</dd></div>{% endif %}
+            {% if ev.fecha_realizada %}<div><dt>Aplicada</dt><dd>{{ ev.fecha_realizada | fecha }}</dd></div>{% endif %}
+            {% if ev.mmse_puntaje is not none %}<div><dt>MMSE</dt><dd><strong class="mmse-num">{{ ev.mmse_puntaje }}</strong> / 30 {{ nivel_badge(ev.nivel_mmse) }}</dd></div>{% endif %}
+        </dl>
+        {% if ev.observaciones %}<p class="eval-obs">{{ ev.observaciones }}</p>{% endif %}
+        {% if ev.imagen_archivo %}
+        <div class="eval-imagen">
+            {% if ev.es_imagen %}
+            <a href="{{ url_for('dashboard.imagen_evaluacion', evaluacion_id=ev.id) }}" target="_blank" rel="noopener" title="Ver en tamaño completo">
+                <img src="{{ url_for('dashboard.imagen_evaluacion', evaluacion_id=ev.id) }}" alt="Resultado MMSE de {{ ev.codigo }}">
+            </a>
+            {% else %}
+            <a class="btn btn-sm btn-outline-lila" href="{{ url_for('dashboard.imagen_evaluacion', evaluacion_id=ev.id) }}" target="_blank" rel="noopener"><i class="fa-solid fa-file-pdf"></i> Ver PDF</a>
+            {% endif %}
+            <a class="small" href="{{ url_for('dashboard.imagen_evaluacion', evaluacion_id=ev.id, descargar=1) }}"><i class="fa-solid fa-download"></i> {{ ev.imagen_nombre }}</a>
+        </div>
+        {% endif %}
+    </div>
+    {% if editable %}
+    <div class="eval-card-actions">
+        <a class="btn btn-sm btn-outline-lila" href="{{ url_for('dashboard.editar_evaluacion', alerta_id=alerta.id, evaluacion_id=ev.id) }}#formulario"><i class="fa-solid fa-pen"></i> {% if ev.estado == 'programada' %}Registrar resultado o editar{% else %}Editar{% endif %}</a>
+        <form method="post" action="{{ url_for('dashboard.eliminar_evaluacion', evaluacion_id=ev.id) }}" onsubmit="return confirm('¿Eliminar esta evaluación{{ ' y su imagen' if ev.imagen_archivo else '' }}?');">
+            {{ form_atencion.hidden_tag() }}
+            <button class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash"></i></button>
+        </form>
+    </div>
+    {% endif %}
+</article>
+{% endmacro %}
+
+{% block content %}
+<div class="page-heading">
+    <div>
+        <nav aria-label="breadcrumb"><ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard.alertas', carga=alerta.carga_id) }}">Alertas</a></li>
+            <li class="breadcrumb-item active">{{ r.etiqueta if r else alerta.codigo }}</li>
+        </ol></nav>
+        <h1>{{ r.nombre if r and r.nombre else alerta.codigo }} {% if r %}<small class="ficha-codigo">{{ alerta.codigo }}</small>{% endif %}</h1>
+        <p class="ficha-tags">
+            <span class="badge-sev sev-{{ alerta.severidad }}">Severidad {{ alerta.severidad }}</span>
+            <span class="chip-factor">{{ alerta.tipo }}</span>
+            {% if r %}{{ nivel_badge(r.nivel_estimado) }} <span class="chip-factor">Prioridad {{ r.prioridad_texto | lower }}</span>{% endif %}
+            {% if alerta.estado == 'abierta' %}<span class="estado-abierta">Abierta</span>{% else %}<span class="estado-atendida">Atendida</span>{% endif %}
+        </p>
+    </div>
+    <a class="btn btn-outline-lila" href="{{ url_for('dashboard.alertas', carga=alerta.carga_id) }}"><i class="fa-solid fa-arrow-left"></i> Volver a alertas</a>
+</div>
+
+<section class="alerta-resumen">
+    <div>
+        <h2><i class="fa-solid fa-circle-exclamation"></i> {{ alerta.tipo }}</h2>
+        <p>{{ alerta.mensaje }}</p>
+        {% if alerta.accion_sugerida %}<p class="mb-0"><i class="fa-solid fa-hand-point-right"></i> <strong>{{ alerta.accion_sugerida }}</strong></p>{% endif %}
+    </div>
+    {% if r %}
+    <div class="alerta-prob">
+        <span>Probabilidad de riesgo alto</span>
+        {{ barra_puntaje(r.p_alto, umbral) }}
+        <div class="probs"><span>Bajo {{ r.p_bajo | pct }}</span><span>Medio {{ r.p_medio | pct }}</span><span>Alto {{ r.p_alto | pct }}</span></div>
+    </div>
+    {% endif %}
+</section>
+
+<ul class="nav nav-tabs ficha-tabs" role="tablist">
+    <li class="nav-item" role="presentation"><button class="nav-link {% if pestana == 'seguimiento' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#tab-seguimiento" type="button" role="tab"><i class="fa-solid fa-calendar-check"></i> Evaluación MMSE <span class="badge rounded-pill text-bg-light">{{ evaluaciones | length }}</span></button></li>
+    <li class="nav-item" role="presentation"><button class="nav-link {% if pestana == 'residente' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#tab-residente" type="button" role="tab"><i class="fa-solid fa-user"></i> Datos del residente</button></li>
+    <li class="nav-item" role="presentation"><button class="nav-link {% if pestana == 'historial' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#tab-historial" type="button" role="tab"><i class="fa-solid fa-clock-rotate-left"></i> Historial y atención</button></li>
+</ul>
+
+<div class="tab-content ficha-contenido">
+    {# ------------------------------------------------ Evaluación MMSE #}
+    <div class="tab-pane fade {% if pestana == 'seguimiento' %}show active{% endif %}" id="tab-seguimiento" role="tabpanel">
+        <div class="ficha-grid">
+            <section class="import-card" id="formulario">
+                <div class="section-title">
+                    <h2>{% if editando %}Editar evaluación{% else %}Programar o registrar evaluación{% endif %}</h2>
+                    {% if editando %}<a class="small" href="{{ url_for('dashboard.ficha_alerta', alerta_id=alerta.id) }}">Cancelar edición</a>{% endif %}
+                </div>
+                <form method="post" enctype="multipart/form-data" class="form-evaluacion"
+                      action="{{ url_for('dashboard.editar_evaluacion', alerta_id=alerta.id, evaluacion_id=editando.id) if editando else url_for('dashboard.nueva_evaluacion', alerta_id=alerta.id) }}">
+                    {{ form.hidden_tag() }}
+                    <div class="estado-selector" role="radiogroup" aria-label="Estado de la evaluación">
+                        {% for valor, texto, icono in [('programada', 'Programar', 'fa-calendar-plus'), ('realizada', 'Ya se aplicó', 'fa-clipboard-check'), ('cancelada', 'Cancelada', 'fa-ban')] %}
+                        <label class="estado-opcion">
+                            <input type="radio" name="estado" value="{{ valor }}" {% if form.estado.data == valor %}checked{% endif %}>
+                            <span><i class="fa-solid {{ icono }}"></i> {{ texto }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <fieldset class="grupo-campos" data-estados="programada realizada cancelada">
+                        <legend>Programación</legend>
+                        <div class="campos-3">
+                            {{ campo(form.fecha_programada) }}
+                            {{ campo(form.hora) }}
+                            {{ campo(form.lugar) }}
+                        </div>
+                        {{ campo(form.responsable) }}
+                    </fieldset>
+                    <fieldset class="grupo-campos" data-estados="realizada">
+                        <legend>Resultado</legend>
+                        <div class="campos-3">
+                            {{ campo(form.fecha_realizada) }}
+                            {{ campo(form.mmse_puntaje) }}
+                            <div class="nivel-preview"><span>Nivel según la Tabla 2</span><strong id="nivelPreview">—</strong></div>
+                        </div>
+                        <label class="campo">{{ form.imagen.label.text }}
+                            <div class="dropzone dropzone-sm" id="zonaImagen">
+                                <i class="fa-solid fa-camera"></i>
+                                <span>Toca para tomar una foto o elegir un archivo</span>
+                                <small id="nombreImagen">JPG, PNG, WEBP o PDF · máx. 8 MB</small>
+                                {{ form.imagen(class="d-none", id="imagenResultado", accept="image/*,.pdf") }}
+                            </div>
+                            <img id="vistaPrevia" class="vista-previa d-none" alt="Vista previa de la imagen">
+                            {% for e in form.imagen.errors %}<span class="invalid-feedback d-block">{{ e }}</span>{% endfor %}
+                        </label>
+                        {% if editando and editando.imagen_archivo %}
+                        <label class="form-check"><input class="form-check-input" type="checkbox" name="quitar_imagen" value="y"> Quitar la imagen actual ({{ editando.imagen_nombre }})</label>
+                        {% endif %}
+                    </fieldset>
+                    {{ campo(form.observaciones) }}
+                    {% if alerta.estado == 'abierta' %}
+                    <label class="form-check"><input class="form-check-input" type="checkbox" name="marcar_atendida" value="y" {% if form.marcar_atendida.data %}checked{% endif %}> Marcar la alerta como atendida al guardar</label>
+                    {% endif %}
+                    <button class="btn btn-primary-lila" type="submit"><i class="fa-solid fa-floppy-disk"></i> {% if editando %}Guardar cambios{% else %}Guardar evaluación{% endif %}</button>
+                </form>
+            </section>
+
+            <section>
+                <div class="section-title"><h2>Evaluaciones de esta alerta</h2><span>{{ evaluaciones | length }}</span></div>
+                {% for ev in evaluaciones %}
+                {{ tarjeta_evaluacion(ev) }}
+                {% else %}
+                <div class="empty-mini"><i class="fa-regular fa-calendar"></i><p>Todavía no se programó el MMSE para esta alerta.</p></div>
+                {% endfor %}
+            </section>
+        </div>
+    </div>
+
+    {# ------------------------------------------------ Datos del residente #}
+    <div class="tab-pane fade {% if pestana == 'residente' %}show active{% endif %}" id="tab-residente" role="tabpanel">
+        {% if r %}
+        <div class="ficha-grid">
+            <section class="table-card">
+                <div class="section-title"><h2>Variables registradas</h2><span>Carga #{{ alerta.carga_id }}{% if r.fecha_evaluacion %} · evaluación del {{ r.fecha_evaluacion | fecha }}{% endif %}</span></div>
+                <dl class="datos-residente">
+                    {% for d in datos %}
+                    <div class="{% if d.imputada %}imputada{% endif %}"><dt>{{ d.nombre }}</dt><dd>{{ d.valor if d.valor else '—' }}{% if d.imputada %} <small title="Faltaba en el registro; el modelo usó la mediana o la moda del entrenamiento">imputada</small>{% endif %}</dd></div>
+                    {% endfor %}
+                </dl>
+            </section>
+            <section class="table-card">
+                <div class="section-title"><h2>Estimación del modelo</h2><span>Orden de prioridad #{{ r.orden_prioridad }}</span></div>
+                <dl class="datos-residente">
+                    <div><dt>Nivel asignado</dt><dd>{{ nivel_badge(r.nivel_estimado) }}</dd></div>
+                    <div><dt>Prioridad</dt><dd>{{ r.prioridad_texto }}</dd></div>
+                    <div><dt>P(alto)</dt><dd>{{ r.p_alto | dec(3) }} <small>umbral {{ umbral | dec(2) }}</small></dd></div>
+                    <div><dt>P(medio) · P(bajo)</dt><dd>{{ r.p_medio | dec(3) }} · {{ r.p_bajo | dec(3) }}</dd></div>
+                    <div><dt>MMSE observado</dt><dd>{{ r.mmse_observado | dec(0) if r.mmse_observado is not none else '—' }} {{ nivel_badge(r.nivel_observado) if r.nivel_observado is not none else '' }}</dd></div>
+                    <div><dt>MMSE anterior</dt><dd>{{ r.mmse_anterior | dec(0) if r.mmse_anterior is not none else '—' }}</dd></div>
+                </dl>
+                <p class="mb-1 mt-3"><strong>Factores que más elevan la estimación:</strong></p>
+                <p>{% for f in r.factores %}<span class="chip-factor">{{ f.variable }}</span>{% else %}<span class="text-muted">Sin un factor dominante</span>{% endfor %}</p>
+                {% if otras %}
+                <p class="mb-1 mt-3"><strong>Otras alertas de este residente:</strong></p>
+                <ul class="lista-otras">
+                    {% for o in otras %}<li><a href="{{ url_for('dashboard.ficha_alerta', alerta_id=o.id) }}"><span class="badge-sev sev-{{ o.severidad }}">{{ o.severidad|capitalize }}</span> {{ o.tipo }}</a> · {{ 'Abierta' if o.estado == 'abierta' else 'Atendida' }}</li>{% endfor %}
+                </ul>
+                {% endif %}
+                <p class="table-note">El modelo se entrenó con pesos de clase: P(alto) sirve para ordenar la prioridad y no debe leerse como probabilidad real de deterioro.</p>
+            </section>
+        </div>
+        {% else %}
+        <p class="text-muted">No hay datos del residente asociados a esta alerta.</p>
+        {% endif %}
+    </div>
+
+    {# ------------------------------------------------ Historial y atención #}
+    <div class="tab-pane fade {% if pestana == 'historial' %}show active{% endif %}" id="tab-historial" role="tabpanel">
+        <div class="ficha-grid">
+            <section class="import-card">
+                <div class="section-title"><h2>Atención de la alerta</h2></div>
+                {% if alerta.estado == 'abierta' %}
+                <form method="post" action="{{ url_for('dashboard.atender_alerta', alerta_id=alerta.id) }}" class="d-grid gap-2">
+                    {{ form_atencion.hidden_tag() }}
+                    <label class="campo">Nota de atención (opcional)
+                        <textarea class="form-control" name="nota" maxlength="255" rows="3" placeholder="Por ejemplo: se informó al médico tratante"></textarea>
+                    </label>
+                    <button class="btn btn-primary-lila"><i class="fa-solid fa-check"></i> Marcar como atendida</button>
+                </form>
+                {% else %}
+                <p class="estado-atendida mb-1"><i class="fa-solid fa-check-double"></i> Atendida el {{ alerta.fecha_atencion | fecha }}{% if alerta.atendida_por %} por {{ alerta.atendida_por.nombre_completo }}{% endif %}</p>
+                {% if alerta.nota_atencion %}<p class="eval-obs">{{ alerta.nota_atencion }}</p>{% endif %}
+                <form method="post" action="{{ url_for('dashboard.reabrir_alerta', alerta_id=alerta.id) }}">
+                    {{ form_atencion.hidden_tag() }}
+                    <button class="btn btn-sm btn-outline-lila"><i class="fa-solid fa-rotate-left"></i> Reabrir alerta</button>
+                </form>
+                {% endif %}
+                <p class="table-note">Alerta generada el {{ alerta.fecha_creacion | fecha }} con la carga #{{ alerta.carga_id }}.</p>
+            </section>
+            <section>
+                <div class="section-title"><h2>Evaluaciones anteriores de {{ r.nombre if r and r.nombre else alerta.codigo }}</h2><span>{{ otras_evaluaciones | length }}</span></div>
+                {% for ev in otras_evaluaciones %}
+                {{ tarjeta_evaluacion(ev, editable=false) }}
+                {% else %}
+                <div class="empty-mini"><i class="fa-solid fa-clock-rotate-left"></i><p>No hay evaluaciones registradas en otras alertas de este residente.</p></div>
+                {% endfor %}
+            </section>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% from "_macros.html" import kpis as kpi_grid, chart_cards, nivel_badge, selector_carga %}
+
+{% block content %}
+<div class="page-heading dashboard-hero hero-alertas">
+    <div class="hero-copy">
+        <span class="hero-eyebrow">Alertas</span>
+        <h1>Seguimiento de casos</h1>
+        <p>Las alertas se generan al ejecutar cada predicción: riesgo estimado, descensos del MMSE, casos que el modelo no señaló y registros incompletos. En la ficha de cada alerta se programa el MMSE, se registra el puntaje con la imagen del resultado y se deja constancia de quién la atendió y cuándo.</p>
+        {{ selector_carga(cargas, carga, 'dashboard.alertas') }}
+    </div>
+    <div class="hero-summary">
+        <div class="summary-chip"><i class="fa-solid fa-route"></i> Ruta de decisión</div>
+        <div class="ruta">
+            <span>Datos</span><i class="fa-solid fa-chevron-right"></i><span>Predicción</span><i class="fa-solid fa-chevron-right"></i><span>Alerta</span><i class="fa-solid fa-chevron-right"></i><span>MMSE</span><i class="fa-solid fa-chevron-right"></i><span>Seguimiento</span>
+        </div>
+    </div>
+</div>
+
+{% if not carga %}
+<section class="empty-state">
+    <i class="fa-solid fa-bell-slash"></i>
+    <h2>No hay alertas todavía</h2>
+    <p>Las alertas aparecen cuando se ejecuta la primera predicción con los registros de la residencia.</p>
+    <a class="btn btn-primary-lila" href="{{ url_for('prediccion.inicio') }}">Ir a predicción</a>
+</section>
+{% else %}
+{{ kpi_grid(kpis) }}
+
+<form class="filter-panel" method="get">
+    <input type="hidden" name="carga" value="{{ carga.id }}">
+    <div class="filter-grid">
+        <label>Estado
+            <select class="form-select" name="estado">
+                <option value="" {% if not filtros.estado %}selected{% endif %}>Todos</option>
+                <option value="abierta" {% if filtros.estado == 'abierta' %}selected{% endif %}>Abiertas</option>
+                <option value="atendida" {% if filtros.estado == 'atendida' %}selected{% endif %}>Atendidas</option>
+            </select>
+        </label>
+        <label>Severidad
+            <select class="form-select" name="severidad">
+                <option value="">Todas</option>
+                {% for s in ['alta', 'media', 'baja'] %}<option value="{{ s }}" {% if filtros.severidad == s %}selected{% endif %}>{{ s|capitalize }}</option>{% endfor %}
+            </select>
+        </label>
+        <label>Tipo
+            <select class="form-select" name="tipo">
+                <option value="">Todos</option>
+                {% for t in tipos %}<option value="{{ t }}" {% if filtros.tipo == t %}selected{% endif %}>{{ t }}</option>{% endfor %}
+            </select>
+        </label>
+        <button class="btn btn-primary-lila" type="submit"><i class="fa-solid fa-filter"></i> Aplicar</button>
+        <a class="btn btn-outline-lila" href="{{ url_for('dashboard.alertas', carga=carga.id, estado='') }}">Limpiar</a>
+    </div>
+</form>
+
+{{ chart_cards(charts) }}
+
+<section class="table-card">
+    <div class="section-title"><h2>Alertas ({{ alertas|length }})</h2><span>Ordenadas por severidad</span></div>
+    <div class="table-responsive">
+    <table class="table table-hover align-middle dt" data-order="[]">
+        <thead><tr><th>Severidad</th><th>Residente</th><th>Nivel</th><th>Tipo</th><th>Detalle</th><th>Acción sugerida</th><th>Seguimiento MMSE</th><th>Estado</th><th class="no-export"></th></tr></thead>
+        <tbody>
+        {% for a in alertas %}
+        {% set ev = a.ultima_evaluacion %}
+        <tr class="fila-clic" data-href="{{ url_for('dashboard.ficha_alerta', alerta_id=a.id) }}">
+            <td data-order="{{ {'alta': 0, 'media': 1, 'baja': 2}[a.severidad] }}"><span class="badge-sev sev-{{ a.severidad }}">{{ a.severidad|capitalize }}</span></td>
+            <td data-search="{{ a.codigo }} {{ a.resultado.nombre if a.resultado else '' }}"><strong>{{ a.resultado.nombre if a.resultado and a.resultado.nombre else a.codigo }}</strong>{% if a.resultado and a.resultado.nombre %}<br><small class="text-muted">{{ a.codigo }}</small>{% endif %}</td>
+            <td>{{ nivel_badge(a.resultado.nivel_estimado if a.resultado else none) }}</td>
+            <td>{{ a.tipo }}</td>
+            <td class="small">{{ a.mensaje }}</td>
+            <td class="small">{{ a.accion_sugerida or '—' }}</td>
+            <td class="small" data-order="{{ ev.fecha_programada.isoformat() if ev and ev.fecha_programada else 'z' }}">
+                {% if not ev %}<span class="text-muted">Sin programar</span>
+                {% elif ev.estado == 'programada' %}<span class="seg seg-programada"><i class="fa-regular fa-calendar"></i> {{ ev.fecha_programada | fecha }}{% if ev.hora %} · {{ ev.hora }}{% endif %}</span>
+                {% elif ev.estado == 'realizada' %}<span class="seg seg-realizada"><i class="fa-solid fa-clipboard-check"></i> MMSE {{ ev.mmse_puntaje }} · {{ ev.fecha_realizada | fecha }}</span>{% if ev.imagen_archivo %} <i class="fa-solid fa-image text-muted" title="Con imagen del resultado"></i>{% endif %}
+                {% else %}<span class="seg seg-cancelada">Cancelada</span>{% endif %}
+            </td>
+            <td>
+                {% if a.estado == 'abierta' %}<span class="estado-abierta">Abierta</span>
+                {% else %}<span class="estado-atendida" title="{{ a.nota_atencion or '' }}">Atendida<br><small>{{ a.fecha_atencion | fecha }}{% if a.atendida_por %} · {{ a.atendida_por.nombre_completo }}{% endif %}</small></span>{% endif %}
+            </td>
+            <td class="text-end"><a class="btn btn-sm btn-primary-lila text-nowrap" href="{{ url_for('dashboard.ficha_alerta', alerta_id=a.id) }}"><i class="fa-solid fa-folder-open"></i> Ficha</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="login-page">
+    <div class="login-hero">
+        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo Residencia de Día Corazones de Alegría" class="login-logo">
+        <h1>Monitor cognitivo</h1>
+        <p>Estimación del riesgo de deterioro cognitivo para priorizar la evaluación de los residentes.</p>
+    </div>
+    <div class="login-card">
+        <div class="login-card-header">
+            <h2>Ingreso</h2>
+            <span>Personal de la residencia</span>
+        </div>
+        <form method="post" novalidate>
+            {{ form.hidden_tag() }}
+            <div class="mb-3">
+                {{ form.username.label(class="form-label") }}
+                {{ form.username(class="form-control", autocomplete="username") }}
+            </div>
+            <div class="mb-3">
+                {{ form.password.label(class="form-label") }}
+                {{ form.password(class="form-control", autocomplete="current-password") }}
+            </div>
+            <div class="form-check mb-4">
+                {{ form.remember(class="form-check-input") }}
+                {{ form.remember.label(class="form-check-label") }}
+            </div>
+            {{ form.submit(class="btn btn-primary-lila w-100") }}
+        </form>
+    </div>
+</div>
+{% endblock %}

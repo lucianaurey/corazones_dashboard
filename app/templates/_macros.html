@@ -1,0 +1,55 @@
+{% macro kpis(lista) %}
+<section class="kpi-grid">
+    {% for k in lista %}
+    <article class="kpi-card tono-{{ k.tono }}">
+        <div class="kpi-icon"><i class="fa-solid {{ k.icono }}"></i></div>
+        <div>
+            <span>{{ k.titulo }}</span>
+            <strong>{{ k.valor }}</strong>
+            <small>{{ k.detalle }}</small>
+        </div>
+    </article>
+    {% endfor %}
+</section>
+{% endmacro %}
+
+{% macro chart_cards(lista) %}
+<section class="chart-grid">
+    {% for c in lista %}
+    <article class="chart-card {% if c.ancho %}chart-wide{% endif %}">
+        <h3>{{ c.titulo }}</h3>
+        <div class="chart-frame {% if c.ancho %}chart-frame-tall{% endif %}"><canvas id="chart-{{ c.id }}"></canvas></div>
+    </article>
+    {% endfor %}
+</section>
+{% endmacro %}
+
+{% macro nivel_badge(nivel) %}
+{% set nombres = ["Bajo", "Medio", "Alto"] %}
+{% if nivel is not none %}<span class="badge-nivel nivel-{{ nivel }}">{{ nombres[nivel] }}</span>{% else %}<span class="text-muted">—</span>{% endif %}
+{% endmacro %}
+
+{% macro barra_puntaje(valor, umbral) %}
+<div class="score-wrap" title="P(alto) {{ valor | dec(3) }} · umbral clínico {{ umbral | dec(2) }}">
+    <div class="score-bar">
+        <div class="score-fill {% if valor >= umbral %}sobre{% endif %}" style="width: {{ (valor * 100) | round(1) }}%"></div>
+        <div class="score-umbral" style="left: {{ (umbral * 100) | round(1) }}%"></div>
+    </div>
+    <span>{{ valor | dec(2) }}</span>
+</div>
+{% endmacro %}
+
+{% macro selector_carga(cargas, carga, destino) %}
+{% if cargas %}
+<form method="get" action="{{ url_for(destino) }}" class="carga-picker">
+    <label for="carga"><i class="fa-solid fa-layer-group"></i> Carga</label>
+    <select class="form-select form-select-sm" id="carga" name="carga" onchange="this.form.submit()">
+        {% for c in cargas %}
+        <option value="{{ c.id }}" {% if carga and c.id == carga.id %}selected{% endif %}>
+            #{{ c.id }} · {{ c.fecha.strftime('%d/%m/%Y %H:%M') }} · {{ c.archivo }} ({{ c.n_residentes }})
+        </option>
+        {% endfor %}
+    </select>
+</form>
+{% endif %}
+{% endmacro %}

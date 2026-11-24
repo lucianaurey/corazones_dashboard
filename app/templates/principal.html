@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% from "_macros.html" import kpis as kpi_grid, chart_cards, nivel_badge, barra_puntaje, selector_carga %}
+
+{% block content %}
+<div class="page-heading dashboard-hero">
+    <div class="hero-copy">
+        <span class="hero-eyebrow">Panel principal</span>
+        <h1>¿A quién evaluar primero?</h1>
+        <p>Resumen del riesgo estimado de deterioro cognitivo de los residentes, ordenado para apoyar la priorización del MMSE completo y de la atención médica.</p>
+        {{ selector_carga(cargas, carga, 'dashboard.principal') }}
+    </div>
+    <div class="hero-summary">
+        <div class="summary-chip"><i class="fa-solid fa-sliders"></i> Modelo vigente</div>
+        <div class="summary-grid">
+            <div><strong>{{ modelo.umbral | dec(2) }}</strong><span>Umbral clínico P(alto)</span></div>
+            <div><strong>{{ modelo.metricas.prueba.clinico.recall_alto | dec(3) }}</strong><span>Recall alto en prueba</span></div>
+            <div><strong>{{ modelo.metricas.auc_alto_prueba | dec(3) }}</strong><span>ROC-AUC alto vs. resto</span></div>
+        </div>
+    </div>
+</div>
+
+{% if not carga %}
+<section class="empty-state">
+    <i class="fa-solid fa-file-circle-plus"></i>
+    <h2>Aún no se cargaron registros de la residencia</h2>
+    <p>Sube el CSV transcrito de los cuadernos en el módulo de predicción. Mientras tanto, la analítica del conjunto abierto ya está disponible.</p>
+    <div class="d-flex gap-2 justify-content-center flex-wrap">
+        <a class="btn btn-primary-lila" href="{{ url_for('prediccion.inicio') }}"><i class="fa-solid fa-wand-magic-sparkles"></i> Ir a predicción</a>
+        <a class="btn btn-outline-lila" href="{{ url_for('dashboard.analitica') }}"><i class="fa-solid fa-chart-column"></i> Ver analítica</a>
+    </div>
+</section>
+{% else %}
+{{ kpi_grid(kpis) }}
+
+{% if carga.evaluacion %}
+{% set ev = carga.evaluacion %}
+<section class="insight-band">
+    <i class="fa-solid fa-scale-balanced"></i>
+    <div>
+        <strong>Contraste con el MMSE observado ({{ ev.n }} residentes, {{ ev.clase or 'riesgo alto' }}).</strong>
+        Sensibilidad {{ ev.sensibilidad | dec(2) }}{% if ev.ic95.sensibilidad %} (IC 95 %: {{ ev.ic95.sensibilidad[0] | dec(2) }}–{{ ev.ic95.sensibilidad[1] | dec(2) }}){% endif %},
+        especificidad {{ ev.especificidad | dec(2) }}, exactitud balanceada {{ ev.exactitud_balanceada | dec(2) }} frente a 0,50 del clasificador trivial.
+        Con esta población los intervalos son amplios: el resultado describe el comportamiento del modelo en la residencia y no es una validación.
+        <a href="{{ url_for('prediccion.detalle', carga_id=carga.id) }}">Ver detalle</a>
+    </div>
+</section>
+{% endif %}
+
+{{ chart_cards(charts) }}
+
+<section class="table-card">
+    <div class="section-title">
+        <h2>Residentes con mayor prioridad</h2>
+        <a class="btn btn-sm btn-outline-lila" href="{{ url_for('prediccion.detalle', carga_id=carga.id) }}">Ver los {{ carga.n_residentes }}</a>
+    </div>
+    <div class="table-responsive">
+    <table class="table table-hover align-middle">
+        <thead><tr><th>#</th><th>Residente</th><th>Edad</th><th>Nivel estimado</th><th>Prioridad</th><th>P(alto)</th><th>Factores que más elevan la estimación</th><th>MMSE observado</th></tr></thead>
+        <tbody>
+        {% for r in prioritarios %}
+        <tr>
+            <td>{{ r.orden_prioridad }}</td>
+            <td><strong>{{ r.nombre or r.codigo }}</strong>{% if r.nombre %}<br><small class="text-muted">{{ r.codigo }}</small>{% endif %}</td>
+            <td>{{ r.edad | dec(0) if r.edad is not none else '—' }}</td>
+            <td>{{ nivel_badge(r.nivel_estimado) }}</td>
+            <td><span class="prioridad prioridad-{{ r.prioridad }}">{{ r.prioridad_texto }}</span></td>
+            <td style="min-width:180px">{{ barra_puntaje(r.p_alto, carga.umbral) }}</td>
+            <td class="factores-txt">{{ r.factores | map(attribute="variable") | join(", ") or "Sin factor dominante" }}</td>
+            <td>{{ r.mmse_observado | dec(0) if r.mmse_observado is not none else '—' }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    <p class="table-note">La barra muestra P(alto), la probabilidad estimada de riesgo alto. Si alcanza el umbral clínico {{ carga.umbral | dec(2) }} (línea), el residente se marca como riesgo alto; si no, se le asigna bajo o medio, el que tenga mayor probabilidad. Prioridad muy alta: P(alto) ≥ 0,70. Como el modelo se entrenó con pesos de clase, P(alto) sirve para ordenar y no debe leerse como una probabilidad real.</p>
+</section>
+{% endif %}
+{% endblock %}

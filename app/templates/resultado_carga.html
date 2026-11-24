@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% from "_macros.html" import nivel_badge, barra_puntaje %}
+
+{% block content %}
+<div class="page-heading">
+    <div>
+        <nav aria-label="breadcrumb"><ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('prediccion.inicio') }}">Predicción</a></li>
+            <li class="breadcrumb-item active">Carga #{{ carga.id }}</li>
+        </ol></nav>
+        <h1>Resultados de la carga #{{ carga.id }}</h1>
+        <p>{{ carga.archivo }}{% if carga.descripcion %} · {{ carga.descripcion }}{% endif %} · {{ carga.fecha | fecha }} · umbral clínico P(alto) ≥ {{ carga.umbral | dec(2) }} · {{ modelo.nombre }}</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a class="btn btn-outline-lila" href="{{ url_for('dashboard.principal', carga=carga.id) }}"><i class="fa-solid fa-house-medical"></i> Panel principal</a>
+        <a class="btn btn-outline-lila" href="{{ url_for('dashboard.alertas', carga=carga.id) }}"><i class="fa-solid fa-bell"></i> Alertas</a>
+        <a class="btn btn-primary-lila" href="{{ url_for('prediccion.descargar', carga_id=carga.id) }}"><i class="fa-solid fa-download"></i> Descargar CSV</a>
+    </div>
+</div>
+
+<section class="kpi-grid">
+    <article class="kpi-card tono-lila"><div class="kpi-icon"><i class="fa-solid fa-file-lines"></i></div><div><span>Filas leídas</span><strong>{{ carga.n_filas }}</strong><small>{{ carga.n_excluidos }} excluidas</small></div></article>
+    <article class="kpi-card tono-morado"><div class="kpi-icon"><i class="fa-solid fa-people-roof"></i></div><div><span>Residentes</span><strong>{{ carga.n_residentes }}</strong><small>Evaluación más reciente de cada uno</small></div></article>
+    <article class="kpi-card tono-rosa"><div class="kpi-icon"><i class="fa-solid fa-heart-pulse"></i></div><div><span>Riesgo alto</span><strong>{{ resultados | selectattr('nivel_estimado', 'equalto', 2) | list | length }}</strong><small>P(alto) ≥ {{ carga.umbral | dec(2) }}</small></div></article>
+    <article class="kpi-card tono-ambar"><div class="kpi-icon"><i class="fa-solid fa-triangle-exclamation"></i></div><div><span>Riesgo medio</span><strong>{{ resultados | selectattr('nivel_estimado', 'equalto', 1) | list | length }}</strong><small>MMSE en ≤ 30 días</small></div></article>
+</section>
+
+{% if carga.avisos %}
+<section class="aviso-card">
+    <h3><i class="fa-solid fa-circle-info"></i> Avisos de la validación</h3>
+    <ul>{% for a in carga.avisos %}<li>{{ a }}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+{% set ev = carga.evaluacion %}
+{% if ev %}
+<section class="table-card">
+    <div class="section-title"><h2>Contraste con el MMSE observado</h2><span>{{ ev.n }} residentes con MMSE · IC 95 % por bootstrap (2.000 remuestreos)</span></div>
+    <div class="eval-grid">
+        <table class="table table-sm">
+            <thead><tr><th>Métrica ({{ ev.clase or 'riesgo alto' }})</th><th>Modelo</th><th>IC 95 %</th><th>Clasificador trivial</th></tr></thead>
+            <tbody>
+            {% for clave, nombre in [('sensibilidad', 'Sensibilidad'), ('especificidad', 'Especificidad'), ('exactitud_balanceada', 'Exactitud balanceada'), ('auc', 'AUC')] %}
+            <tr>
+                <td>{{ nombre }}</td>
+                <td><strong>{{ ev[clave] | dec(3) }}</strong></td>
+                <td>{% if ev.ic95[clave] %}{{ ev.ic95[clave][0] | dec(2) }} – {{ ev.ic95[clave][1] | dec(2) }}{% else %}—{% endif %}</td>
+                <td>{{ ev.trivial[clave] | dec(3) if clave in ev.trivial else '0,500' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        <div>
+            <table class="table table-sm matriz">
+                <thead><tr><th>Observado \ Estimado</th><th>Bajo</th><th>Medio</th><th>Alto</th></tr></thead>
+                <tbody>
+                {% for fila in ev.matriz %}
+                <tr><th>{{ ['Bajo', 'Medio', 'Alto'][loop.index0] }}</th>{% for v in fila %}<td class="{% if loop.index0 == loop.revindex0 %}{% endif %}">{{ v }}</td>{% endfor %}</tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            <p class="table-note mb-0">
+                Distribución observada: bajo {{ ev.conteo_observado.get('0', ev.conteo_observado.get(0, 0)) }}, medio {{ ev.conteo_observado.get('1', ev.conteo_observado.get(1, 0)) }}, alto {{ ev.conteo_observado.get('2', ev.conteo_observado.get(2, 0)) }}.
+                {% if ev.colapsa_dos_clases %}<strong>Alguna clase tiene menos de cinco residentes: según la regla de contingencia (sección 1.4.1) las predicciones se agregan y se evalúa riesgo elevado (medio o alto) frente a bajo.</strong>{% else %}Se evalúa la clase de riesgo alto: estimado alto cuando P(alto) ≥ {{ carga.umbral | dec(2) }}.{% endif %}
+            </p>
+        </div>
+    </div>
+    <p class="table-note">Estos resultados describen el comportamiento del modelo en la residencia; con una población pequeña los intervalos son amplios y no constituyen una validación clínica.</p>
+</section>
+{% endif %}
+
+<section class="table-card">
+    <div class="section-title"><h2>Residentes en orden de prioridad</h2><span>P(bajo) y P(medio) se ven al pasar el cursor y se incluyen en el CSV</span></div>
+    <div class="table-responsive">
+    <table class="table table-hover align-middle dt" data-order='[[0, "asc"]]'>
+        <thead><tr><th>#</th><th>Residente</th><th>Fecha</th><th>Edad</th><th>Nivel estimado</th><th>Prioridad</th><th>P(alto)</th><th>Factores principales</th><th>MMSE</th><th>Nivel observado</th><th>Imputadas</th><th>Acción</th></tr></thead>
+        <tbody>
+        {% for r in resultados %}
+        <tr>
+            <td>{{ r.orden_prioridad }}</td>
+            <td><strong>{{ r.nombre or r.codigo }}</strong>{% if r.nombre %}<br><small class="text-muted">{{ r.codigo }}</small>{% endif %}</td>
+            <td>{{ r.fecha_evaluacion | fecha if r.fecha_evaluacion else '—' }}</td>
+            <td>{{ r.edad | dec(0) if r.edad is not none else '—' }}</td>
+            <td data-order="{{ r.nivel_estimado }}">{{ nivel_badge(r.nivel_estimado) }}</td>
+            <td data-order="{{ r.prioridad }}"><span class="prioridad prioridad-{{ r.prioridad }}">{{ r.prioridad_texto }}</span></td>
+            <td data-order="{{ r.p_alto }}" style="min-width:150px" title="P(bajo) {{ r.p_bajo | dec(3) }} · P(medio) {{ r.p_medio | dec(3) }}">{{ barra_puntaje(r.p_alto, carga.umbral) }}</td>
+            <td class="factores-txt">{{ r.factores | map(attribute="variable") | join(", ") }}</td>
+            <td>{{ r.mmse_observado | dec(0) if r.mmse_observado is not none else '—' }}{% if r.mmse_anterior is not none %}<br><small class="text-muted">antes {{ r.mmse_anterior | dec(0) }}</small>{% endif %}</td>
+            <td data-order="{{ r.nivel_observado if r.nivel_observado is not none else -1 }}">{{ nivel_badge(r.nivel_observado) }}</td>
+            <td title="{{ r.imputadas }}">{{ r.lista_imputadas | length }}</td>
+            <td class="small text-nowrap" title="{{ acciones[r.nivel_estimado] }}">{{ "MMSE primero" if r.prioridad == 1 else ["Control rutinario", "MMSE ≤ 30 días", "MMSE ≤ 7 días"][r.nivel_estimado] }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</section>
+{% endblock %}

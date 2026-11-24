@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="empty-state">
+    <i class="fa-solid fa-heart-crack"></i>
+    <h2>Error {{ codigo }}</h2>
+    <p>{{ mensaje }}</p>
+    <a class="btn btn-primary-lila" href="{{ url_for('dashboard.principal') }}">Volver al panel principal</a>
+</section>
+{% endblock %}

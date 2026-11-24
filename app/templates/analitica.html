@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+{% from "_macros.html" import kpis as kpi_grid, chart_cards %}
+
+{% macro selector_vistas(actual) %}
+<nav class="vista-tabs" aria-label="Secciones de la analítica">
+    <a class="vista-tab {% if actual == 'datos' %}active{% endif %}" href="{{ url_for('dashboard.analitica', vista='datos') }}">
+        <i class="fa-solid fa-magnifying-glass-chart"></i>
+        <span><strong>Capítulo 4</strong><small>Análisis de datos</small></span>
+    </a>
+    <a class="vista-tab {% if actual == 'modelo' %}active{% endif %}" href="{{ url_for('dashboard.analitica', vista='modelo') }}">
+        <i class="fa-solid fa-diagram-project"></i>
+        <span><strong>Capítulo 5</strong><small>Modelado de datos</small></span>
+    </a>
+    {% if actual %}<a class="vista-cerrar" href="{{ url_for('dashboard.analitica') }}" title="Cerrar la sección"><i class="fa-solid fa-xmark"></i> Cerrar</a>{% endif %}
+</nav>
+{% endmacro %}
+
+{% block content %}
+<div class="page-heading dashboard-hero hero-analitica">
+    <div class="hero-copy">
+        <span class="hero-eyebrow">Analítica · Fase 1</span>
+        <h1>Conjunto de datos abierto</h1>
+        <p>Community Elderly Cognitive Health Dataset (ziya07, s.f.): {{ "{:,}".format(n_total).replace(",", ".") }} registros limpios con las mismas reglas del capítulo 4. Con ellos se entrenó y evaluó el modelo antes de aplicarlo a la residencia.</p>
+    </div>
+    <div class="hero-summary">
+        <div class="summary-chip"><i class="fa-solid fa-cube"></i> Modelo vigente</div>
+        <div class="summary-grid">
+            <div><strong>{{ m.umbral | dec(2) }}</strong><span>Umbral clínico P(alto)</span></div>
+            <div><strong>{{ m.prueba.clinico.recall_alto | dec(3) }}</strong><span>Recall alto en prueba</span></div>
+            <div><strong>{{ m.auc_alto_prueba | dec(3) }}</strong><span>ROC-AUC alto vs. resto</span></div>
+        </div>
+    </div>
+</div>
+
+{{ selector_vistas(vista) }}
+
+{% if not vista %}
+{# ---------------------------------------------------------------- Selector #}
+<section class="vista-grid">
+    <a class="vista-card" href="{{ url_for('dashboard.analitica', vista='datos') }}">
+        <div class="vista-card-icon"><i class="fa-solid fa-magnifying-glass-chart"></i></div>
+        <span class="vista-card-eyebrow">Capítulo 4</span>
+        <h2>Análisis de datos</h2>
+        <p>Distribución del nivel de riesgo, MMSE y puntos de corte, riesgo por edad, nivel educativo y enfermedades crónicas, y asociación de cada predictora (ε²). Con filtros.</p>
+        <div class="vista-card-datos">
+            <span><strong>{{ "{:,}".format(n_total).replace(",", ".") }}</strong> registros</span>
+            <span><strong>{{ resumen.alto | pct }}</strong> riesgo alto</span>
+            <span><strong>{{ resumen.mmse | dec(1) }}</strong> MMSE medio</span>
+        </div>
+        <span class="vista-card-cta">Abrir <i class="fa-solid fa-arrow-right"></i></span>
+    </a>
+    <a class="vista-card" href="{{ url_for('dashboard.analitica', vista='modelo') }}">
+        <div class="vista-card-icon"><i class="fa-solid fa-diagram-project"></i></div>
+        <span class="vista-card-eyebrow">Capítulo 5</span>
+        <h2>Modelado de datos</h2>
+        <p>Cuatro algoritmos, pesos de clase, validación cruzada, búsqueda de hiperparámetros con GridSearchCV, umbral clínico sobre P(alto) y evaluación final en el conjunto de prueba.</p>
+        <div class="vista-card-datos">
+            <span><strong>{{ m.modelo_ganador }}</strong></span>
+            <span><strong>{% for k, v in m.hiperparametros.items() %}{{ k }} = {{ v }}{% if not loop.last %}, {% endif %}{% endfor %}</strong></span>
+            <span>umbral <strong>{{ m.umbral | dec(2) }}</strong></span>
+        </div>
+        <span class="vista-card-cta">Abrir <i class="fa-solid fa-arrow-right"></i></span>
+    </a>
+</section>
+
+{% elif vista == 'datos' %}
+{# ---------------------------------------------------------------- Capítulo 4 #}
+<form class="filter-panel" method="get">
+    <input type="hidden" name="vista" value="datos">
+    <div class="filter-grid">
+        <label>Género
+            <select class="form-select" name="genero"><option value="">Todos</option>{% for o in opciones.genero %}<option {% if filtros.genero == o %}selected{% endif %}>{{ o }}</option>{% endfor %}</select>
+        </label>
+        <label>Nivel educativo
+            <select class="form-select" name="educacion"><option value="">Todos</option>{% for o in opciones.educacion %}<option {% if filtros.educacion == o %}selected{% endif %}>{{ o }}</option>{% endfor %}</select>
+        </label>
+        <label>Grupo de edad
+            <select class="form-select" name="grupo_edad"><option value="">Todos</option>{% for o in opciones.grupo_edad %}<option {% if filtros.grupo_edad == o %}selected{% endif %}>{{ o }}</option>{% endfor %}</select>
+        </label>
+        <label>Estado civil
+            <select class="form-select" name="estado_civil"><option value="">Todos</option>{% for o in opciones.estado_civil %}<option {% if filtros.estado_civil == o %}selected{% endif %}>{{ o }}</option>{% endfor %}</select>
+        </label>
+        <label>GDS-15
+            <select class="form-select" name="gds_cat"><option value="">Todos</option>{% for o in opciones.gds_cat %}<option {% if filtros.gds_cat == o %}selected{% endif %}>{{ o }}</option>{% endfor %}</select>
+        </label>
+        <button class="btn btn-primary-lila" type="submit"><i class="fa-solid fa-filter"></i> Aplicar</button>
+        <a class="btn btn-outline-lila" href="{{ url_for('dashboard.analitica', vista='datos') }}">Limpiar</a>
+    </div>
+</form>
+
+{% if n == 0 %}
+<section class="empty-state"><i class="fa-solid fa-magnifying-glass"></i><h2>Sin registros con esos filtros</h2></section>
+{% else %}
+{{ kpi_grid(kpis) }}
+{{ chart_cards(charts) }}
+
+<section class="table-card">
+    <div class="section-title"><h2>Riesgo por nivel educativo y grupo de edad</h2><span>{{ "{:,}".format(n).replace(",", ".") }} registros filtrados</span></div>
+    <table class="table table-hover dt">
+        <thead><tr><th>Nivel educativo</th><th>Grupo de edad</th><th>Registros</th><th>% riesgo alto</th><th>MMSE medio</th><th>GDS medio</th></tr></thead>
+        <tbody>
+        {% for f in tabla %}
+        <tr><td>{{ f.educacion }}</td><td>{{ f.grupo_edad }}</td><td>{{ f.n }}</td><td data-order="{{ f.alto }}">{{ f.alto | pct }}</td><td>{{ f.mmse | dec(1) }}</td><td>{{ f.gds | dec(1) }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <p class="table-note">El MMSE depende de la escolaridad, por lo que parte de la diferencia entre niveles educativos puede ser un efecto de medición del instrumento (sección 1.4.1).</p>
+</section>
+{% endif %}
+
+{% else %}
+{# ---------------------------------------------------------------- Capítulo 5 #}
+{% set cli = m.prueba.clinico %}{% set trad = m.prueba.tradicional %}
+<section class="kpi-grid">
+    <article class="kpi-card tono-morado"><div class="kpi-icon"><i class="fa-solid fa-trophy"></i></div><div><span>Modelo seleccionado</span><strong class="kpi-texto">{{ m.modelo_ganador }}</strong><small>{% for k, v in m.hiperparametros.items() %}{{ k }} = {{ v }}{% if not loop.last %} · {% endif %}{% endfor %} · pesos de clase</small></div></article>
+    <article class="kpi-card tono-lila"><div class="kpi-icon"><i class="fa-solid fa-sliders"></i></div><div><span>Umbral clínico</span><strong>{{ m.umbral | dec(2) }}</strong><small>P(alto) ≥ umbral → riesgo alto</small></div></article>
+    <article class="kpi-card tono-rosa"><div class="kpi-icon"><i class="fa-solid fa-bullseye"></i></div><div><span>Recall riesgo alto (prueba)</span><strong>{{ cli.recall_alto | dec(3) }}</strong><small>{{ cli.detectados_alto }} de {{ cli.total_alto }} · con 0,50: {{ trad.recall_alto | dec(3) }}</small></div></article>
+    <article class="kpi-card tono-ambar"><div class="kpi-icon"><i class="fa-solid fa-chart-area"></i></div><div><span>AP riesgo alto (prueba)</span><strong>{{ m.ap_alto_prueba | dec(3) }}</strong><small>Línea basal {{ m.prevalencia_alto_prueba | dec(3) }}</small></div></article>
+    <article class="kpi-card tono-verde"><div class="kpi-icon"><i class="fa-solid fa-wave-square"></i></div><div><span>ROC-AUC alto vs. resto</span><strong>{{ m.auc_alto_prueba | dec(3) }}</strong><small>Macro (3 clases) {{ m.auc_macro_prueba | dec(3) }}</small></div></article>
+</section>
+
+<details class="seccion-modelo" open>
+    <summary><span class="paso">1</span> Entrenamiento inicial: sin balanceo y con pesos de clase <small>conjunto de prueba · Tabla 18</small></summary>
+    <div class="table-responsive">
+    <table class="table table-sm table-hover">
+        <thead><tr><th>Modelo</th><th>Estrategia</th><th>Exactitud</th><th>Precisión alto</th><th>Recall alto</th><th>F1 alto</th><th>F1 macro</th><th>ROC-AUC</th><th>AP alto</th></tr></thead>
+        <tbody>
+        {% for c in m.comparacion_balanceo %}
+        <tr class="{% if c.modelo == m.modelo_ganador and c.estrategia == 'Pesos de clase' %}fila-destacada{% endif %}">
+            <td>{{ c.modelo }}</td><td>{{ c.estrategia }}</td><td>{{ c.exactitud | dec(3) }}</td><td>{{ c.precision_alto | dec(3) }}</td>
+            <td>{{ c.recall_alto | dec(3) }}</td><td>{{ c.f1_alto | dec(3) }}</td><td>{{ c.f1_macro | dec(3) }}</td><td>{{ c.roc_auc | dec(3) }}</td><td>{{ c.ap_alto | dec(3) }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    <p class="table-note">Cada persona se asigna al nivel con mayor probabilidad. Con pesos de clase sube el recall de riesgo alto a cambio de algo de precisión; desde aquí se trabaja con pesos (KNN no los admite).</p>
+</details>
+
+<details class="seccion-modelo">
+    <summary><span class="paso">2</span> Validación cruzada estratificada de 5 pliegues <small>conjunto de entrenamiento · Tabla 19</small></summary>
+    <div class="table-responsive">
+    <table class="table table-sm table-hover">
+        <thead><tr><th>Modelo</th><th>Exactitud</th><th>Precisión alto</th><th>Recall alto</th><th>F1 macro</th><th>ROC-AUC</th><th>AP alto</th></tr></thead>
+        <tbody>
+        {% for c in m.validacion_cruzada %}
+        <tr class="{% if c.modelo == m.modelo_ganador %}fila-destacada{% endif %}">
+            <td>{{ c.modelo }}</td>
+            {% for k in ['exactitud', 'precision_alto', 'recall_alto', 'f1_macro', 'roc_auc', 'ap_alto'] %}
+            <td>{{ c[k ~ '_media'] | dec(3) }} ± {{ c[k ~ '_de'] | dec(3) }}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    <div class="chart-card mt-3"><h3>{{ charts[0].titulo }}</h3><div class="chart-frame"><canvas id="chart-cvRecallAp"></canvas></div></div>
+</details>
+
+<details class="seccion-modelo">
+    <summary><span class="paso">3</span> Búsqueda de hiperparámetros con GridSearchCV <small>refit: AP de riesgo alto · Tabla 20</small></summary>
+    <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle">
+        <thead><tr><th>Modelo</th><th>Rejilla evaluada</th><th>Mejor combinación</th><th>AP alto (CV)</th><th>Recall alto (CV)</th><th>F1 macro (CV)</th><th>Combinaciones</th><th>Tiempo</th></tr></thead>
+        <tbody>
+        {% for b in m.busqueda %}
+        <tr class="{% if b.modelo == m.modelo_ganador %}fila-destacada{% endif %}">
+            <td>{{ b.modelo }}{% if b.modelo in m.competitivos %} <span class="chip-factor">{% if b.modelo == m.modelo_ganador %}ganador{% else %}competitivo{% endif %}</span>{% endif %}</td>
+            <td class="small rejilla">{% for k, v in b.rejilla.items() %}<span><b>{{ k }}</b>: {{ v | join(', ') }}</span>{% endfor %}</td>
+            <td class="small">{% for k, v in b.mejores.items() %}{{ k }} = {{ v }}{% if not loop.last %}; {% endif %}{% endfor %}</td>
+            <td>{{ b.ap_media | dec(3) }} ± {{ b.ap_de | dec(3) }}</td><td>{{ b.recall_alto | dec(3) }}</td><td>{{ b.f1_macro | dec(3) }}</td>
+            <td>{{ b.combinaciones }}</td><td>{{ b.tiempo_seg | dec(1) }} s</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    <div class="chart-card mt-3"><h3>{{ charts[1].titulo }}</h3><div class="chart-frame"><canvas id="chart-busquedaAp"></canvas></div></div>
+    <p class="table-note">Ganador técnico: mayor AP de riesgo alto en la validación cruzada. Competitivos: a 0,01 o menos; entre ellos se prefiere el más simple e interpretable (sección 3.8).</p>
+</details>
+
+<details class="seccion-modelo">
+    <summary><span class="paso">4</span> Umbral clínico de decisión <small>probabilidades fuera de pliegue · Tabla 21</small></summary>
+    <p class="mb-2">Si <strong>P(alto) ≥ umbral</strong>, la persona se marca como riesgo alto y se prioriza su MMSE; si no, se asigna a bajo o medio, el que tenga mayor probabilidad. El umbral clínico es el valor más alto que mantiene el recall de riesgo alto en {{ (m.recall_minimo * 100) | round | int }} % o más.</p>
+    <div class="table-responsive">
+    <table class="table table-sm">
+        <thead><tr><th>Umbral</th><th>Valor de P(alto)</th><th>Recall alto</th><th>Precisión alto</th><th>Registros marcados como alto</th></tr></thead>
+        <tbody>
+            <tr><td>Tradicional</td><td>{{ m.umbral_cv.tradicional.umbral | dec(2) }}</td><td>{{ m.umbral_cv.tradicional.recall_alto | dec(3) }}</td><td>{{ m.umbral_cv.tradicional.precision_alto | dec(3) }}</td><td>{{ m.umbral_cv.tradicional.pct_marcados_alto | dec(1) }} %</td></tr>
+            <tr class="fila-destacada"><td>Clínico</td><td>{{ m.umbral_cv.clinico.umbral | dec(2) }}</td><td>{{ m.umbral_cv.clinico.recall_alto | dec(3) }}</td><td>{{ m.umbral_cv.clinico.precision_alto | dec(3) }}</td><td>{{ m.umbral_cv.clinico.pct_marcados_alto | dec(1) }} %</td></tr>
+        </tbody>
+    </table>
+    </div>
+    <div class="chart-card mt-3"><h3>{{ charts[2].titulo }}</h3><div class="chart-frame chart-frame-tall"><canvas id="chart-curvaUmbral"></canvas></div></div>
+</details>
+
+<details class="seccion-modelo">
+    <summary><span class="paso">5</span> Evaluación final en el conjunto de prueba <small>{{ m.n_prueba }} registros · Tablas 22 y 23</small></summary>
+    <div class="two-col">
+        {% for nombre, t in [('Umbral tradicional', trad), ('Umbral clínico', cli)] %}
+        <div>
+            <h3 class="h6 fw-bold">{{ nombre }} · P(alto) ≥ {{ t.umbral | dec(2) }}</h3>
+            <table class="table table-sm matriz">
+                <thead><tr><th>Real \ Asignado</th><th>Bajo</th><th>Medio</th><th>Alto</th></tr></thead>
+                <tbody>
+                {% for fila in t.matriz %}{% set i = loop.index0 %}{% set total = fila | sum %}
+                <tr><th>{{ ['Bajo', 'Medio', 'Alto'][i] }}</th>
+                    {% for v in fila %}<td class="{% if loop.index0 == i %}celda-acierto{% elif loop.index0 == 2 %}celda-alarma{% endif %}">{{ v }}<small> ({{ ((v / total * 100) if total else 0) | round | int }} %)</small></td>{% endfor %}
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            <table class="table table-sm">
+                <thead><tr><th>Clase</th><th>n</th><th>Precisión</th><th>Recall</th><th>F1</th></tr></thead>
+                <tbody>
+                {% for c in t.por_clase %}
+                <tr class="{% if c.clase == 'Alto' %}fw-bold{% endif %}"><td>{{ c.clase }}</td><td>{{ c.n }}</td><td>{{ c.precision | dec(3) }}</td><td>{{ c.recall | dec(3) }}</td><td>{{ c.f1 | dec(3) }}</td></tr>
+                {% endfor %}
+                <tr><td>Promedio macro</td><td>{{ m.n_prueba }}</td><td>{{ t.precision_macro | dec(3) }}</td><td>{{ t.recall_macro | dec(3) }}</td><td>{{ t.f1_macro | dec(3) }}</td></tr>
+                </tbody>
+            </table>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="table-responsive">
+    <table class="table table-sm table-hover">
+        <thead><tr><th>Métrica</th><th>Tradicional ({{ trad.umbral | dec(2) }})</th><th>Clínico ({{ cli.umbral | dec(2) }})</th></tr></thead>
+        <tbody>
+            <tr class="fila-destacada"><td>Recall de riesgo alto</td><td>{{ trad.recall_alto | dec(3) }}</td><td>{{ cli.recall_alto | dec(3) }}</td></tr>
+            <tr><td>Precisión de riesgo alto</td><td>{{ trad.precision_alto | dec(3) }}</td><td>{{ cli.precision_alto | dec(3) }}</td></tr>
+            <tr><td>F1 de riesgo alto</td><td>{{ trad.f1_alto | dec(3) }}</td><td>{{ cli.f1_alto | dec(3) }}</td></tr>
+            <tr><td>Especificidad de riesgo alto</td><td>{{ trad.especificidad_alto | dec(3) }}</td><td>{{ cli.especificidad_alto | dec(3) }}</td></tr>
+            <tr><td>F1 macro</td><td>{{ trad.f1_macro | dec(3) }}</td><td>{{ cli.f1_macro | dec(3) }}</td></tr>
+            <tr><td>Exactitud balanceada</td><td>{{ trad.exactitud_balanceada | dec(3) }}</td><td>{{ cli.exactitud_balanceada | dec(3) }}</td></tr>
+            <tr><td>Exactitud</td><td>{{ trad.exactitud | dec(3) }}</td><td>{{ cli.exactitud | dec(3) }}</td></tr>
+            <tr><td>Casos de riesgo alto detectados</td><td>{{ trad.detectados_alto }} de {{ trad.total_alto }}</td><td>{{ cli.detectados_alto }} de {{ cli.total_alto }}</td></tr>
+            <tr><td>Falsas alarmas (marcados como alto sin serlo)</td><td>{{ trad.falsas_alarmas }}</td><td>{{ cli.falsas_alarmas }}</td></tr>
+            <tr><td>Personas marcadas como riesgo alto</td><td>{{ trad.pct_marcados_alto | dec(1) }} %</td><td>{{ cli.pct_marcados_alto | dec(1) }} %</td></tr>
+            <tr><td>Horas de MMSE por cada 100 personas</td><td>{{ trad.horas_mmse_por_100 | dec(1) }}</td><td>{{ cli.horas_mmse_por_100 | dec(1) }}</td></tr>
+        </tbody>
+    </table>
+    </div>
+    <p class="table-note">Horas de MMSE = porcentaje marcado como riesgo alto × {{ m.minutos_mmse }} minutos por aplicación. El médico dispone de {{ m.horas_medico_semana }} horas semanales, por lo que P(alto) también ordena a quién evaluar primero.</p>
+    <section class="chart-grid mt-3">
+        <article class="chart-card"><h3>{{ charts[3].titulo }}</h3><div class="chart-frame chart-frame-tall"><canvas id="chart-roc"></canvas></div></article>
+        <article class="chart-card"><h3>{{ charts[4].titulo }}</h3><div class="chart-frame chart-frame-tall"><canvas id="chart-pr"></canvas></div></article>
+    </section>
+</details>
+
+{% if coeficientes %}
+<details class="seccion-modelo">
+    <summary><span class="paso">6</span> Importancia de las variables <small>odds ratios de riesgo alto frente a bajo · Tabla 24</small></summary>
+    <div class="two-col">
+        <div class="chart-card"><h3>{{ charts[5].titulo }}</h3><div class="chart-frame chart-frame-tall"><canvas id="chart-oddsRatios"></canvas></div></div>
+        <div class="table-responsive">
+        <table class="table table-sm table-hover">
+            <thead><tr><th>Variable</th><th>Unidad del cambio</th><th>Coeficiente</th><th>Odds ratio</th></tr></thead>
+            <tbody>
+            {% for c in coeficientes %}
+            <tr><td>{{ c.nombre }}</td><td>{{ c.unidad }}</td><td>{{ c.coeficiente | dec(3) }}</td><td class="{% if c.odds_ratio > 1 %}text-or-sube{% else %}text-or-baja{% endif %}">{{ c.odds_ratio | dec(2) }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+    <p class="table-note">Numéricas: cambio al aumentar una desviación estándar. Categóricas: frente a la referencia (Femenino, Casado, No fuma, No consume alcohol). OR &gt; 1 aumenta el riesgo; OR &lt; 1 lo reduce.</p>
+</details>
+{% endif %}
+<p class="table-note">Valores recalculados al entrenar el modelo en este servidor; pueden diferir en el tercer decimal de los del documento según la versión de scikit-learn.</p>
+{% endif %}
+{% endblock %}

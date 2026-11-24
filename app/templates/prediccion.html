@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% from "_macros.html" import nivel_badge, barra_puntaje %}
+
+{% block content %}
+<div class="page-heading dashboard-hero hero-prediccion">
+    <div class="hero-copy">
+        <span class="hero-eyebrow">Predicción · Fase 2</span>
+        <h1>Aplicar el modelo a la residencia</h1>
+        <p>Sube el CSV transcrito de los cuadernos (una fila por evaluación, residentes identificados solo por código). El pipeline guardado se aplica tal cual: no se reentrena ni se cambia el umbral.</p>
+    </div>
+    <div class="hero-summary">
+        <div class="summary-chip"><i class="fa-solid fa-cube"></i> {{ modelo.nombre }} · {% for k, v in modelo.metricas.hiperparametros.items() %}{{ k }} = {{ v }}{% if not loop.last %}, {% endif %}{% endfor %}</div>
+        <div class="summary-grid">
+            <div><strong>{{ modelo.umbral | dec(2) }}</strong><span>Umbral clínico P(alto)</span></div>
+            <div><strong>12</strong><span>Predictoras</span></div>
+            <div><strong>{{ modelo.paquete.entrenado_en[8:10] }}/{{ modelo.paquete.entrenado_en[5:7] }}/{{ modelo.paquete.entrenado_en[2:4] }}</strong><span>Entrenado</span></div>
+        </div>
+    </div>
+</div>
+
+<section class="steps">
+    {% for paso in ['Subir datos', 'Validar', 'Ejecutar modelo', 'Clasificar riesgo', 'Guardar y alertar'] %}
+    <div class="step"><span>{{ loop.index }}</span><small>{{ paso }}</small></div>
+    {% endfor %}
+</section>
+
+<div class="two-col">
+    <section class="import-card">
+        <div class="section-title"><h2>Cargar registros de la residencia</h2><span>CSV, máx. 8 MB</span></div>
+        <form method="post" action="{{ url_for('prediccion.cargar') }}" enctype="multipart/form-data" class="upload-form">
+            {{ form.hidden_tag() }}
+            <label class="dropzone" for="csv_file">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <span>Arrastra o selecciona un archivo CSV</span>
+                <small id="nombreArchivo">Ningún archivo seleccionado</small>
+                {{ form.csv_file(class="d-none", id="csv_file", accept=".csv") }}
+            </label>
+            {{ form.descripcion(class="form-control", placeholder="Descripción, por ejemplo: Evaluaciones noviembre 2026") }}
+            <button class="btn btn-primary-lila w-100" type="submit"><i class="fa-solid fa-play"></i> Ejecutar predicción</button>
+        </form>
+        <div class="downloads">
+            <a href="{{ url_for('prediccion.plantilla') }}"><i class="fa-solid fa-file-csv"></i> Plantilla vacía</a>
+            <a href="{{ url_for('prediccion.demo') }}"><i class="fa-solid fa-vial"></i> Archivo de prueba ficticio (32 residentes)</a>
+        </div>
+        <details class="formato">
+            <summary>Formato del archivo</summary>
+            <p>Columnas: <code>{{ columnas | join('</code>, <code>') | safe }}</code>.</p>
+            <ul>
+                <li><code>codigo</code> es obligatorio (R01, R02…) y <code>nombre</code> es opcional: el nombre solo se muestra dentro del dashboard. Si el archivo trae documento de identidad, dirección o teléfono, se rechaza.</li>
+                <li>Las variables que falten se imputan con la mediana o la moda del entrenamiento y se informan por residente.</li>
+                <li><code>nivel_educativo</code>: 0 a 3 o Ninguno, Primaria, Secundaria, Superior. <code>gds</code> corresponde a la GDS-15.</li>
+                <li><code>mmse</code> es opcional: si está, se compara el nivel estimado con el observado (sección 3.8). Nunca se usa como predictor.</li>
+                <li>Si hay varias evaluaciones por residente se usa la más reciente, y un descenso de 3 puntos o más del MMSE genera una alerta.</li>
+                <li>Regla de decisión: riesgo alto si P(alto) ≥ {{ modelo.umbral | dec(2) }} (umbral clínico fijado con la validación cruzada del conjunto abierto); si no, bajo o medio según la mayor probabilidad.</li>
+            </ul>
+        </details>
+    </section>
+
+    <section class="import-card">
+        <div class="section-title"><h2>Evaluación rápida</h2><span>Residente nuevo, aún sin MMSE</span></div>
+        <form method="post" action="{{ url_for('prediccion.rapida') }}" class="form-rapida">
+            {{ form_rapida.hidden_tag() }}
+            {% for campo in [form_rapida.edad, form_rapida.genero, form_rapida.nivel_educativo, form_rapida.estado_civil, form_rapida.enfermedades_cronicas, form_rapida.glucosa_mg_dl, form_rapida.imc, form_rapida.gds, form_rapida.calidad_sueno, form_rapida.actividad_fisica, form_rapida.tabaquismo, form_rapida.consumo_alcohol] %}
+            <label>{{ campo.label.text }}
+                {% if campo.type == 'SelectField' %}{{ campo(class="form-select form-select-sm") }}{% else %}{{ campo(class="form-control form-control-sm" + (" is-invalid" if campo.errors else "")) }}{% endif %}
+            </label>
+            {% endfor %}
+            <button class="btn btn-primary-lila" type="submit"><i class="fa-solid fa-calculator"></i> Estimar riesgo</button>
+        </form>
+        <p class="table-note">Los campos vacíos se imputan. El resultado no se guarda.</p>
+        {% if estimacion %}
+        <div class="resultado-rapido nivel-borde-{{ estimacion.nivel }}">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <strong>Nivel estimado · prioridad {{ estimacion.prioridad | lower }}</strong>{{ nivel_badge(estimacion.nivel) }}
+            </div>
+            <small class="text-muted fw-bold">P(alto) frente al umbral clínico {{ modelo.umbral | dec(2) }}</small>
+            {{ barra_puntaje(estimacion.p_alto, modelo.umbral) }}
+            <div class="probs">
+                <span>Bajo {{ estimacion.p_bajo | pct }}</span><span>Medio {{ estimacion.p_medio | pct }}</span><span>Alto {{ estimacion.p_alto | pct }}</span>
+            </div>
+            <p class="mb-1"><strong>Factores:</strong> {% for f in estimacion.factores %}<span class="chip-factor">{{ f.variable }}</span>{% else %}sin un factor dominante{% endfor %}</p>
+            {% if estimacion.imputadas %}<p class="mb-1 small text-muted">Imputadas: {{ estimacion.imputadas | join(', ') }}</p>{% endif %}
+            <p class="mb-0 small"><i class="fa-solid fa-hand-point-right"></i> {{ estimacion.accion }}</p>
+        </div>
+        {% endif %}
+    </section>
+</div>
+
+<section class="table-card">
+    <div class="section-title"><h2>Historial de cargas</h2><span>Las más recientes primero</span></div>
+    {% if cargas %}
+    <div class="table-responsive">
+    <table class="table table-hover align-middle">
+        <thead><tr><th>#</th><th>Fecha</th><th>Archivo</th><th>Descripción</th><th>Residentes</th><th>Riesgo alto</th><th>Riesgo medio</th><th>Usuario</th><th></th></tr></thead>
+        <tbody>
+        {% for c in cargas %}
+        {% set filas_c = c.resultados.all() %}
+        <tr>
+            <td>{{ c.id }}</td><td>{{ c.fecha | fecha }}</td><td>{{ c.archivo }}</td><td>{{ c.descripcion or '—' }}</td>
+            <td>{{ c.n_residentes }}</td><td>{{ filas_c | selectattr('nivel_estimado', 'equalto', 2) | list | length }}</td><td>{{ filas_c | selectattr('nivel_estimado', 'equalto', 1) | list | length }}</td><td>{{ c.usuario.nombre_completo if c.usuario else '—' }}</td>
+            <td class="text-end text-nowrap">
+                <a class="btn btn-sm btn-outline-lila" href="{{ url_for('prediccion.detalle', carga_id=c.id) }}">Ver</a>
+                <a class="btn btn-sm btn-outline-lila" href="{{ url_for('prediccion.descargar', carga_id=c.id) }}"><i class="fa-solid fa-download"></i></a>
+                {% if current_user.rol == 'admin' %}
+                <form method="post" action="{{ url_for('prediccion.eliminar', carga_id=c.id) }}" class="d-inline" onsubmit="return confirm('¿Eliminar la carga #{{ c.id }} con sus resultados y alertas?');">
+                    {{ form.hidden_tag() }}<button class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash"></i></button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="text-muted mb-0">Todavía no se ejecutó ninguna predicción.</p>
+    {% endif %}
+</section>
+{% endblock %}

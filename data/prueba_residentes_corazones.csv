@@ -1,0 +1,56 @@
+codigo,nombre,fecha_evaluacion,edad,genero,nivel_educativo,estado_civil,enfermedades_cronicas,glucosa_mg_dl,imc,gds,calidad_sueno,actividad_fisica,tabaquismo,consumo_alcohol,mmse
+R01,Jorge Mendoza Rojas,28/02/2026,77,M,Secundaria,Divorciado,1,133,20.3,4,1,7,No,No,23
+R01,Jorge Mendoza Rojas,31/10/2026,78,M,Secundaria,Divorciado,1,133,20.3,5,1,7,No,No,22
+R02,Rosa Fernández Ugarte,07/02/2026,67,F,Ninguno,Casado,4,150,28.5,6,5,6,Sí,Sí,26
+R02,Rosa Fernández Ugarte,10/10/2026,68,F,Ninguno,Casado,4,150,28.5,7,5,6,Sí,Sí,20
+R03,Carmen Rojas Saavedra,16/02/2026,63,F,Superior,Viudo,0,123,28.2,0,5,0,Sí,Sí,21
+R03,Carmen Rojas Saavedra,30/10/2026,64,F,Superior,Viudo,0,,28.2,0,,,Sí,Sí,21
+R04,Víctor Quiroga Pardo,13/02/2026,69,M,Superior,Casado,0,108,23.5,6,5,4,Sí,Sí,26
+R04,Víctor Quiroga Pardo,24/09/2026,70,M,Superior,Casado,0,108,23.5,6,5,4,Sí,Sí,24
+R05,Raúl Céspedes Vargas,11/01/2026,65,M,Primaria,Soltero,3,147,31.2,5,2,2,Sí,Sí,26
+R05,Raúl Céspedes Vargas,24/09/2026,66,M,Primaria,Soltero,3,147,31.2,5,2,2,Sí,Sí,25
+R06,Hugo Torrico Salinas,09/03/2026,88,M,Secundaria,Casado,1,147,34.6,12,1,4,No,No,19
+R06,Hugo Torrico Salinas,19/10/2026,89,M,Secundaria,Casado,1,147,34.6,13,1,4,No,No,18
+R07,Elena Vargas Choque,25/02/2026,61,F,Superior,Viudo,2,144,25.7,2,1,9,Sí,No,24
+R07,Elena Vargas Choque,20/10/2026,62,F,Superior,Viudo,2,144,25.7,3,1,9,Sí,No,19
+R08,Julia Montenegro Arze,20/02/2026,84,F,Primaria,Casado,4,146,27.2,7,1,2,Sí,No,12
+R08,Julia Montenegro Arze,03/10/2026,85,F,Primaria,Casado,4,146,27.2,22,1,2,Sí,No,12
+R09,Teresa Quispe Mamani,08/03/2026,88,F,Ninguno,Casado,2,189,33.7,9,1,3,Sí,No,18
+R09,Teresa Quispe Mamani,31/10/2026,89,F,Ninguno,Casado,2,189,33.7,9,1,3,Sí,No,16
+R10,Marta Salazar Rocabado,25/02/2026,78,F,Secundaria,Viudo,3,175,21.9,9,3,4,Sí,No,16
+R10,Marta Salazar Rocabado,21/10/2026,79,F,Secundaria,Viudo,3,175,21.9,10,3,4,Sí,No,16
+R11,Ernesto Gutiérrez Lima,26/03/2026,88,M,Ninguno,Casado,4,185,21.8,4,3,0,No,Sí,22
+R11,Ernesto Gutiérrez Lima,08/11/2026,89,M,Ninguno,Casado,4,185,21.8,5,3,0,No,Sí,18
+R12,Gladys Herbas Cuéllar,13/02/2026,91,F,Secundaria,Divorciado,1,131,26.0,5,3,4,No,No,24
+R12,Gladys Herbas Cuéllar,17/10/2026,92,F,Secundaria,Divorciado,1,131,26.0,5,3,4,No,No,24
+R13,Óscar Villarroel Antezana,26/02/2026,74,M,Secundaria,Divorciado,0,131,33.0,4,1,5,No,Sí,25
+R13,Óscar Villarroel Antezana,07/11/2026,75,M,Secundaria,Divorciado,0,131,33.0,6,1,5,No,Sí,24
+R14,Mario Zurita Claros,14/03/2026,88,M,Ninguno,Viudo,7,169,29.8,9,2,8,Sí,No,12
+R14,Mario Zurita Claros,28/10/2026,89,M,Ninguno,Viudo,7,169,29.8,10,2,8,Sí,No,11
+R15,Felipe Arnez Soria,10/02/2026,77,M,Superior,Casado,3,124,20.8,8,4,2,No,No,27
+R15,Felipe Arnez Soria,10/10/2026,78,M,Superior,Casado,3,124,20.8,9,4,2,No,No,27
+R16,Alberto Camacho Rivero,02/03/2026,81,M,Primaria,Casado,7,184,25.9,9,2,2,Sí,No,20
+R16,Alberto Camacho Rivero,08/10/2026,82,M,Primaria,Casado,7,184,25.9,9,2,2,Sí,No,17
+R17,René Montaño Coca,17/02/2026,74,M,Primaria,Casado,4,200,37.9,12,1,6,Sí,Sí,24
+R17,René Montaño Coca,07/10/2026,75,M,Primaria,Casado,4,200,,12,1,6,Sí,Sí,24
+R18,Julio Ferrufino Paz,04/02/2026,76,M,Secundaria,Viudo,7,190,23.3,9,3,2,No,Sí,22
+R18,Julio Ferrufino Paz,29/09/2026,77,M,Secundaria,Viudo,7,190,23.3,9,3,2,No,Sí,22
+R19,Beatriz Alcócer Flores,13/02/2026,81,F,Ninguno,Divorciado,1,135,29.2,6,4,5,Sí,No,25
+R19,Beatriz Alcócer Flores,14/10/2026,82,F,Ninguno,Divorciado,1,135,29.2,7,4,5,Sí,No,25
+R20,Gonzalo Arce Medrano,10/01/2026,72,M,Ninguno,Casado,2,160,36.5,9,2,4,Sí,No,15
+R20,Gonzalo Arce Medrano,25/09/2026,73,M,Ninguno,Casado,2,160,36.5,10,2,4,Sí,No,13
+R21,Lidia Terrazas Moya,17/02/2026,79,F,Superior,Viudo,7,152,25.4,4,2,4,Sí,Sí,25
+R21,Lidia Terrazas Moya,09/10/2026,80,F,Superior,Viudo,7,152,25.4,5,2,4,Sí,Sí,22
+R22,Teodoro Siles Encinas,27/01/2026,80,M,Primaria,Soltero,1,120,23.2,6,4,9,No,No,29
+R22,Teodoro Siles Encinas,08/10/2026,81,M,Primaria,Soltero,1,120,23.2,7,4,9,No,No,28
+R23,Norma Zambrana Gil,16/09/2026,61,F,Ninguno,Casado,1,136,24.6,4,3,7,No,No,24
+R24,Eduardo Rocha Peredo,28/10/2026,72,M,Ninguno,Casado,3,196,23.2,9,1,0,Sí,Sí,21
+R25,Ana María Cuba Rivas,05/11/2026,84,F,Primaria,viuda,4,170,31.8,10,3,3,Sí,No,13
+R26,Olga Butrón Lazarte,28/10/2026,84,F,Primaria,Viudo,3,142,29.4,7,3,2,si,No,17
+R27,Graciela Veizaga Nava,17/09/2026,89,F,Superior,Soltero,0,128,30.3,3,2,9,No,Sí,26
+R28,Marcelo Orellana Vega,02/11/2026,88,M,Superior,Casado,2,149,23.7,5,2,8,No,No,25
+R29,Armando Prado Heredia,26/10/2026,80,M,Secundaria,Divorciado,2,102,28.2,8,1,6,Sí,No,25
+R30,Simón Galarza Ortuño,24/10/2026,79,M,Secundaria,Casado,3,172,30.7,7,1,3,Sí,No,
+R31,Germán Balderrama Ríos,01/10/2026,72,M,Secundaria,Divorciado,4,114,27.3,0,1,2,Sí,Sí,20
+R32,Luis Alberto Zelada Cruz,24/09/2026,83,M,Ninguno,Casado,4,186,25.8,10,3,7,Sí,Sí,15
+,,12/10/2026,78,F,Primaria,,,,,,,,,,22
