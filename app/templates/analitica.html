@@ -181,13 +181,14 @@
 
 <details class="seccion-modelo">
     <summary><span class="paso">4</span> Umbral clínico de decisión <small>probabilidades fuera de pliegue · Tabla 21</small></summary>
-    <p class="mb-2">Si <strong>P(alto) ≥ umbral</strong>, la persona se marca como riesgo alto y se prioriza su MMSE; si no, se asigna a bajo o medio, el que tenga mayor probabilidad. El umbral clínico es el valor más alto que mantiene el recall de riesgo alto en {{ (m.recall_minimo * 100) | round | int }} % o más.</p>
+    <p class="mb-2">Si <strong>P(alto) ≥ umbral</strong>, la persona se marca como riesgo alto y se prioriza su MMSE; si no, se asigna a bajo o medio, el que tenga mayor probabilidad. Se compararon los umbrales 0,20; 0,25; 0,30; 0,35 y 0,40: el umbral clínico es el punto donde se cruzan la precisión y el recall de riesgo alto ({{ m.umbral_cruce | dec(3) }}), redondeado a {{ m.umbral | dec(2) }}.</p>
     <div class="table-responsive">
     <table class="table table-sm">
-        <thead><tr><th>Umbral</th><th>Valor de P(alto)</th><th>Recall alto</th><th>Precisión alto</th><th>Registros marcados como alto</th></tr></thead>
+        <thead><tr><th>Umbral P(alto)</th><th>Recall alto</th><th>Precisión alto</th><th>Registros marcados como alto</th></tr></thead>
         <tbody>
-            <tr><td>Tradicional</td><td>{{ m.umbral_cv.tradicional.umbral | dec(2) }}</td><td>{{ m.umbral_cv.tradicional.recall_alto | dec(3) }}</td><td>{{ m.umbral_cv.tradicional.precision_alto | dec(3) }}</td><td>{{ m.umbral_cv.tradicional.pct_marcados_alto | dec(1) }} %</td></tr>
-            <tr class="fila-destacada"><td>Clínico</td><td>{{ m.umbral_cv.clinico.umbral | dec(2) }}</td><td>{{ m.umbral_cv.clinico.recall_alto | dec(3) }}</td><td>{{ m.umbral_cv.clinico.precision_alto | dec(3) }}</td><td>{{ m.umbral_cv.clinico.pct_marcados_alto | dec(1) }} %</td></tr>
+            {% for c in m.comparacion_umbrales %}
+            <tr {% if c.umbral == m.umbral %}class="fila-destacada"{% endif %}><td>{{ c.umbral | dec(2) }}{% if c.umbral == m.umbral %} (clínico){% elif c.umbral == m.umbral_tradicional %} (tradicional){% endif %}</td><td>{{ c.recall_alto | dec(3) }}</td><td>{{ c.precision_alto | dec(3) }}</td><td>{{ c.pct_marcados_alto | dec(1) }} %</td></tr>
+            {% endfor %}
         </tbody>
     </table>
     </div>

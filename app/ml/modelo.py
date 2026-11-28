@@ -6,8 +6,9 @@ Reproduce el cuaderno del capítulo 5:
 3. Validación cruzada estratificada de 5 pliegues (modelo ingenuo + 4 modelos con pesos).
 4. Hiperparametrización con GridSearchCV (refit = Average Precision de riesgo alto).
 5. Selección del ganador técnico (mayor AP; competitivos a 0,01 o menos).
-6. Umbral clínico sobre P(alto): el más alto con recall de riesgo alto ≥ 80 %,
-   buscado con las probabilidades fuera de pliegue del conjunto de entrenamiento.
+6. Umbral clínico sobre P(alto): el punto donde se cruzan la precisión y el recall de
+   riesgo alto (comparado con 0,20; 0,25; 0,30; 0,35 y 0,40), con las probabilidades
+   fuera de pliegue del conjunto de entrenamiento.
 7. Evaluación final en prueba con el umbral tradicional (0,50) y el clínico.
 
 El modelo se entrena una sola vez con el conjunto abierto (Fase 1) y se guarda en un
@@ -60,12 +61,13 @@ from app.ml.preprocesamiento import (
 
 RANDOM_STATE = 42
 CLASE_ALTO = 2
-RECALL_MINIMO = 0.80           # criterio del umbral clínico (sección 3.8)
+RECALL_MINIMO = 0.80           # referencia anterior (ya no define el umbral)
+UMBRALES_COMPARAR = [0.20, 0.25, 0.30, 0.35, 0.40]   # umbrales candidatos (cuaderno, sección 9.1)
 UMBRAL_TRADICIONAL = 0.50
 UMBRAL_MUY_ALTA = 0.70         # prioridad "muy alta" (cuaderno del capítulo 5, sección 13)
 MINUTOS_MMSE = 45
 HORAS_MEDICO_SEMANA = 8
-VERSION_MODELO = "cap5-gridsearch-umbral-alto-2.0"
+VERSION_MODELO = "cap5-gridsearch-umbral-cruce-3.0"
 
 # Compatibilidad con el nombre anterior
 SENSIBILIDAD_OBJETIVO = RECALL_MINIMO
@@ -304,8 +306,14 @@ def entrenar(ruta_csv: str | Path, ruta_salida: str | Path, comparar_modelos: bo
     y_alto_train = (y_train.to_numpy() == CLASE_ALTO).astype(int)
     candidatos = np.round(np.arange(0.05, 0.951, 0.01), 2)
     curva_umbral = [_resumen_umbral(p_alto_oof, y_alto_train, u) for u in candidatos]
-    validos = [c["umbral"] for c in curva_umbral if c["recall_alto"] >= RECALL_MINIMO]
-    umbral = float(max(validos)) if validos else float(candidatos[0])
+    # Umbral clínico = cruce de precisión y recall de riesgo alto (interpolación lineal)
+    dif = np.array([c["precision_alto"] - c["recall_alto"] for c in curva_umbral])
+    k = int(np.argmax(dif >= 0))
+    u0, u1 = candidatos[k - 1], candidatos[k]
+    umbral_cruce = float(u0 + (u1 - u0) * (-dif[k - 1]) / (dif[k] - dif[k - 1]))
+    umbral = round(umbral_cruce, 2)
+    comparacion_umbrales = [_resumen_umbral(p_alto_oof, y_alto_train, u)
+                            for u in sorted(set(UMBRALES_COMPARAR + [umbral, UMBRAL_TRADICIONAL]))]
 
     # 6. Modelo final y evaluación en prueba con los dos umbrales
     pipeline.fit(X_train, y_train)
@@ -350,7 +358,8 @@ def entrenar(ruta_csv: str | Path, ruta_salida: str | Path, comparar_modelos: bo
         "competitivos": competitivos,
         "umbral": umbral,
         "umbral_tradicional": UMBRAL_TRADICIONAL,
-        "recall_minimo": RECALL_MINIMO,
+        "umbral_cruce": umbral_cruce,
+        "comparacion_umbrales": comparacion_umbrales,
         "comparacion_balanceo": comparacion_balanceo,
         "validacion_cruzada": validacion_cruzada,
         "busqueda": busqueda,

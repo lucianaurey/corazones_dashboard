@@ -513,15 +513,13 @@ def _contexto_modelo(modelo) -> dict:
     curva = m.get("curva_umbral", [])
     if curva:
         charts.append({
-            "id": "curvaUmbral", "titulo": "Elección del umbral clínico sobre P(alto) (probabilidades fuera de pliegue)",
+            "id": "curvaUmbral", "titulo": "Precisión y recall de riesgo alto según el umbral: el cruce es el umbral clínico",
             "tipo": "scatter", "ancho": True,
             "datasets": [
                 {"label": "Recall de riesgo alto", "puntos": [{"x": c["umbral"], "y": round(c["recall_alto"], 4)} for c in curva], "color": "#B8486B"},
                 {"label": "Precisión de riesgo alto", "puntos": [{"x": c["umbral"], "y": round(c["precision_alto"], 4)} for c in curva if c["pct_marcados_alto"] >= 1], "color": "#9D75AA"},
-                {"label": "Proporción marcada como alto", "puntos": [{"x": c["umbral"], "y": round(c["pct_marcados_alto"] / 100, 4)} for c in curva], "color": "#E8B04B", "punteada": True},
             ],
-            "opciones": {"lineaX": m["umbral"], "etiquetaX": f"umbral clínico {m['umbral']:.2f}".replace(".", ","),
-                         "lineaUmbral": m.get("recall_minimo", 0.8), "etiquetaUmbral": "recall 0,80",
+            "opciones": {"lineaX": m["umbral"], "etiquetaX": f"cruce = umbral clínico {m['umbral']:.2f}".replace(".", ","),
                          "min": 0, "max": 1, "xmin": 0.05, "xmax": 0.75, "tituloX": "Umbral sobre P(alto)"}})
     if m.get("roc"):
         charts.append({
